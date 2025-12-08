@@ -30,7 +30,6 @@
 **问题分类**: 🔄 复杂度问题:8, 📝 注释问题:1, ⚠️ 其他问题:4
 
 **主要问题**:
-- 代码注释率较低 (9.28%)，建议增加注释
 - 函数 list_stories 的循环复杂度过高 (19)，考虑重构
 - 函数 create_story 的循环复杂度过高 (44)，考虑重构
 - 函数 story_chat_stream 的循环复杂度过高 (37)，考虑重构
@@ -43,6 +42,7 @@
 - 函数 'story_chat_stream' () 复杂度严重过高 (37)，必须简化
 - 函数 'generate' () 极度过长 (172 行)，必须拆分
 - 函数 'generate' () 复杂度严重过高 (31)，必须简化
+- 代码注释率较低 (9.28%)，建议增加注释
 
 ### 3. /home/runner/work/CABM/CABM/routes/chat_routes.py (得分: 53.70)
 **问题分类**: 🔄 复杂度问题:7, 📝 注释问题:1, ⚠️ 其他问题:5
@@ -76,15 +76,15 @@
 **问题分类**: 🔄 复杂度问题:6, ⚠️ 其他问题:3
 
 **主要问题**:
-- 函数 format_messages_for_character 的循环复杂度过高 (32)，考虑重构
-- 函数 build_character_system_prompt 的循环复杂度过高 (22)，考虑重构
-- 函数 call_director_model 的循环复杂度过高 (17)，考虑重构
 - 函数 'format_messages_for_character' () 极度过长 (130 行)，必须拆分
 - 函数 'format_messages_for_character' () 复杂度严重过高 (32)，必须简化
 - 函数 'build_character_system_prompt' () 过长 (105 行)，建议拆分
 - 函数 'build_character_system_prompt' () 复杂度严重过高 (22)，必须简化
 - 函数 'call_director_model' () 极度过长 (121 行)，必须拆分
 - 函数 'call_director_model' () 复杂度过高 (17)，建议简化
+- 函数 format_messages_for_character 的循环复杂度过高 (32)，考虑重构
+- 函数 build_character_system_prompt 的循环复杂度过高 (22)，考虑重构
+- 函数 call_director_model 的循环复杂度过高 (17)，考虑重构
 
 ## 改进建议
 
