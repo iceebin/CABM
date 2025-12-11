@@ -1,0 +1,208 @@
+name: Sync Upstream Repository
+
+on:
+  # 每日自动执行 - 每天凌晨 2:00 UTC (北京时间 10:00)
+  schedule:
+    - cron: '0 2 * * *'
+
+  # 允许手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/xhc2008/CABM.git || true
+          git remote -v
+
+      - name: Fetch upstream changes
+        run: |
+          git fetch upstream
+
+      - name: Check for updates
+        id: check
+        run: |
+          # 获取本地 main 分支和上游 main 分支的最新提交
+          LOCAL_COMMIT=$(git rev-parse origin/main)
+          UPSTREAM_COMMIT=$(git rev-parse upstream/main)
+
+          echo "Local commit: $LOCAL_COMMIT"
+          echo "Upstream commit: $UPSTREAM_COMMIT"
+
+          if [ "$LOCAL_COMMIT" = "$UPSTREAM_COMMIT" ]; then
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "No updates from upstream"
+          else
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "Updates available from upstream"
+          fi
+
+      - name: Create sync branch
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          BRANCH_NAME="sync-upstream-$(date +%Y%m%d-%H%M%S)"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          git checkout -b $BRANCH_NAME
+
+      - name: Merge upstream changes
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          # 尝试合并上游更改
+          if git merge upstream/main --no-edit; then
+            echo "MERGE_STATUS=success" >> $GITHUB_ENV
+            echo "Successfully merged upstream changes"
+          else
+            echo "MERGE_STATUS=conflict" >> $GITHUB_ENV
+            echo "Merge conflicts detected"
+            # 保存冲突状态但不退出
+            git merge --abort || true
+          fi
+
+      - name: Push sync branch
+        if: steps.check.outputs.has_updates == 'true' && env.MERGE_STATUS == 'success'
+        run: |
+          git push origin $BRANCH_NAME
+
+      - name: Set PR metadata
+        if: steps.check.outputs.has_updates == 'true' && env.MERGE_STATUS == 'success'
+        run: |
+          echo "PR_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "PR_DATETIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_updates == 'true' && env.MERGE_STATUS == 'success'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.BRANCH_NAME }}
+          base: main
+          title: "🔄 同步上游仓库更新 - ${{ env.PR_DATE }}"
+          body: |
+            ## 📥 上游仓库同步
+
+            此 PR 自动同步来自上游仓库的更新。
+
+            **上游仓库**: https://github.com/xhc2008/CABM
+            **同步时间**: ${{ env.PR_DATETIME }}
+            **工作流运行**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            ### 📋 变更说明
+
+            请仔细审查此 PR 中的更改，确保与当前仓库的定制内容兼容。
+
+            ### ✅ 合并前检查
+
+            - [ ] 检查代码变更是否与现有定制冲突
+            - [ ] 验证构建和测试是否通过
+            - [ ] 确认功能正常运行
+
+            ---
+
+            🤖 此 PR 由 GitHub Actions 自动创建
+          labels: |
+            sync-upstream
+            automated
+
+      - name: Set Issue metadata
+        if: steps.check.outputs.has_updates == 'true' && env.MERGE_STATUS == 'conflict'
+        run: |
+          echo "ISSUE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "ISSUE_DATETIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
+
+      - name: Create conflict report file
+        if: steps.check.outputs.has_updates == 'true' && env.MERGE_STATUS == 'conflict'
+        run: |
+          cat > conflict_report.md << EOF
+          ## ⚠️ 上游仓库同步失败
+
+          尝试从上游仓库同步更新时遇到合并冲突。
+
+          **上游仓库**: https://github.com/xhc2008/CABM
+          **失败时间**: ${ISSUE_DATETIME}
+          **工作流运行**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          ### 🔧 手动解决步骤
+
+          \`\`\`bash
+          # 1. 克隆仓库
+          git clone https://github.com/${{ github.repository }}.git
+          cd CABM
+
+          # 2. 添加上游远程仓库
+          git remote add upstream https://github.com/xhc2008/CABM.git
+
+          # 3. 获取上游更改
+          git fetch upstream
+
+          # 4. 创建同步分支
+          git checkout -b sync-upstream-manual
+
+          # 5. 合并上游更改
+          git merge upstream/main
+
+          # 6. 解决冲突后提交
+          git add .
+          git commit -m "Resolve merge conflicts with upstream"
+
+          # 7. 推送并创建 PR
+          git push origin sync-upstream-manual
+          \`\`\`
+
+          ### 📝 注意事项
+
+          - 请仔细检查冲突文件
+          - 确保保留本仓库的定制功能
+          - 测试合并后的代码是否正常工作
+
+          ---
+
+          🤖 此 Issue 由 GitHub Actions 自动创建
+          EOF
+
+      - name: Create Issue for merge conflicts
+        if: steps.check.outputs.has_updates == 'true' && env.MERGE_STATUS == 'conflict'
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "⚠️ 上游同步失败：存在合并冲突 - ${{ env.ISSUE_DATE }}"
+          content-filepath: ./conflict_report.md
+          labels: |
+            sync-upstream
+            merge-conflict
+            help-wanted
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🔄 上游同步工作流执行摘要" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**执行时间**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**上游仓库**: https://github.com/xhc2008/CABM" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.check.outputs.has_updates }}" = "false" ]; then
+            echo "✅ **状态**: 已是最新，无需同步" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ env.MERGE_STATUS }}" = "success" ]; then
+            echo "✅ **状态**: 同步成功，已创建 PR" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ env.MERGE_STATUS }}" = "conflict" ]; then
+            echo "⚠️ **状态**: 存在合并冲突，已创建 Issue" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ **状态**: 检查更新中" >> $GITHUB_STEP_SUMMARY
+          fi
