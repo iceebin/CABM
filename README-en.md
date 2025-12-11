@@ -329,6 +329,7 @@ For specific contribution process, please refer to [CONTRIBUTING.md](CONTRIBUTIN
 
 ### Development Documentation
 - [Contribution Guide](CONTRIBUTING.md) - How to participate in project development
+- [Upstream Repository Auto Sync](docs/UPSTREAM_SYNC.md) - Daily automatic upstream sync documentation
 
 ## License
 

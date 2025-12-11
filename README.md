@@ -203,6 +203,7 @@ python start.py --host 127.0.0.1 --port 8080 --debug --no-browser
 
 ### 开发文档
 - [贡献指南](CONTRIBUTING.md) - 如何参与项目开发
+- [上游仓库自动同步](docs/UPSTREAM_SYNC.md) - 每日自动同步上游更新说明
 
 ## 许可证
 
